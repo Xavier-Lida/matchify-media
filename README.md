@@ -1,36 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Futsal Content Generator
 
-## Getting Started
+Micro logiciel web gratuit qui permet aux ligues et équipes de futsal de générer
+des images de contenu Instagram à partir de templates prédéfinis. L'admin importe
+les templates, les utilisateurs les remplissent et téléchargent le résultat en
+PNG/JPG.
 
-First, run the development server:
+> Implémentation conforme à `SPEC.md`.
+
+## Stack
+
+| Couche | Techno |
+|---|---|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| Langage | TypeScript |
+| Styling | Tailwind CSS v4 |
+| Canvas client | Konva.js / react-konva |
+| Canvas serveur | @napi-rs/canvas |
+| Base de données / Storage / Auth | Supabase |
+| Scraping | Cheerio |
+
+## Architecture
+
+```
+app/
+├── page.tsx                  # Browse — liste des templates actifs
+├── template/[id]/page.tsx    # Éditeur canvas (Konva) + formulaire dynamique
+├── admin/
+│   ├── login/page.tsx        # Connexion admin (Supabase Auth)
+│   ├── page.tsx              # Dashboard
+│   └── templates/
+│       ├── page.tsx          # Gestion (activer/désactiver/supprimer)
+│       └── new/page.tsx      # Création (3 étapes + form builder)
+└── api/
+    ├── generate/route.ts     # POST — rendu serveur (clé API Bearer)
+    └── spordle/route.ts      # GET — scraping Spordle
+components/
+├── SiteHeader.tsx
+├── TemplateCard.tsx
+├── editor/                   # CanvasEditor, DynamicForm, SpordleImport, …
+└── admin/                    # FieldBuilder, TemplateCreator, TemplatesManager
+lib/
+├── types.ts                  # Types partagés (Field, JsonConfig, …)
+├── canvas.ts                 # Logique de rendu PURE (buildRenderPlan)
+├── canvas-server.ts          # Exécuteur de rendu serveur (@napi-rs/canvas)
+├── fonts.ts / fonts-server.ts# Polices client / enregistrement serveur
+├── spordle.ts                # Scraping Cheerio
+├── templates.ts              # Accès données Supabase
+└── supabase/                 # Clients browser / server / admin
+proxy.ts                      # Protection des routes /admin (ex-middleware)
+supabase/schema.sql           # Schéma DB + buckets + RLS
+```
+
+La logique de rendu est partagée : `buildRenderPlan(config, values, overrides)`
+(dans `lib/canvas.ts`) produit une liste d'instructions de dessin, exécutée soit
+par Konva (client, temps réel), soit par `@napi-rs/canvas` (serveur, API).
+
+## Démarrage
+
+1. Installer les dépendances :
+
+```bash
+npm install
+```
+
+2. Configurer Supabase :
+   - Créer un projet sur [supabase.com](https://supabase.com).
+   - Exécuter `supabase/schema.sql` dans l'éditeur SQL (crée la table
+     `templates`, les buckets `templates`/`previews` et les politiques RLS).
+   - Créer le compte admin unique : **Authentication → Users → Add user**
+     (email + mot de passe).
+
+3. Variables d'environnement — copier `.env.example` vers `.env.local` :
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...   # sb_publishable_… (ou anon legacy)
+SUPABASE_SECRET_KEY=...                    # sb_secret_… (ou service_role legacy)
+MATCHIFY_API_KEY=...                       # header Bearer pour /api/generate
+ADMIN_EMAIL=...                            # même email que le compte Supabase Auth
+```
+
+Les anciennes variables `NEXT_PUBLIC_SUPABASE_ANON_KEY` et `SUPABASE_SERVICE_ROLE_KEY`
+restent supportées en secours.
+
+4. Lancer :
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sans configuration Supabase, l'UI s'affiche en mode « non configuré » plutôt que
+de planter.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Matchify — `POST /api/generate`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+curl -X POST https://<host>/api/generate \
+  -H "Authorization: Bearer $MATCHIFY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_id": "<uuid>",
+    "fields": {
+      "equipe_dom": "Dynamo FC", "score_dom": 4,
+      "score_ext": 2, "equipe_ext": "Lions TR",
+      "logo_dom": "https://…/dynamo.png",
+      "buteurs": [{ "nom": "Tremblay", "buts": 2 }]
+    }
+  }' --output resultat.png
+```
 
-## Learn More
+Réponses : `200` PNG · `401` clé invalide · `404` template introuvable/inactif ·
+`422` champs requis manquants (clés listées) · `500` erreur de rendu.
 
-To learn more about Next.js, take a look at the following resources:
+## Scraping Spordle — `GET /api/spordle?url=...`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Valide que le domaine est bien `spordle.com` (sinon `400`), scrape la page et
+renvoie `SpordleMatchData`. `502` si le site est indisponible ou si sa structure
+a changé.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+> ⚠️ Les sélecteurs CSS de `lib/spordle.ts` sont heuristiques et doivent être
+> vérifiés/ajustés sur le HTML réel de Spordle (documenter la date d'inspection
+> dans le fichier).
 
-## Deploy on Vercel
+## Polices
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Inter, Oswald, Bebas Neue, Montserrat, Roboto Condensed (via `@fontsource`) +
+Arial système. Chargées côté client par `globals.css` et enregistrées côté
+serveur via `GlobalFonts` (`lib/fonts-server.ts`).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Hors scope v1
+
+Historique par utilisateur, publication Instagram directe, templates vidéo,
+multi-admin, drag & drop des champs (positions x/y saisies manuellement).
