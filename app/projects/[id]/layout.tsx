@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ActiveProjectSync } from "@/components/projects/ActiveProjectSync";
 import { ProjectSidebar } from "@/components/projects/ProjectSidebar";
+import { UnsavedChangesProvider } from "@/components/projects/UnsavedChangesContext";
 import { getSessionUser } from "@/lib/auth/session";
 import { getProjectForUser } from "@/lib/projects";
 
@@ -22,7 +23,7 @@ export default async function ProjectLayout({
   if (!project) notFound();
 
   return (
-    <>
+    <UnsavedChangesProvider>
       <ActiveProjectSync projectId={id} />
       <SiteHeader />
       <div className="flex flex-1">
@@ -39,6 +40,6 @@ export default async function ProjectLayout({
           {children}
         </main>
       </div>
-    </>
+    </UnsavedChangesProvider>
   );
 }

@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   const { template_id, fields = {} } = body;
   if (!template_id) {
     return NextResponse.json(
-      { error: "template_id requis." },
+      { error: "Identifiant du template requis." },
       { status: 400 },
     );
   }

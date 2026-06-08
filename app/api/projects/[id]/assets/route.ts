@@ -20,7 +20,7 @@ export async function POST(
     };
 
     if (!body.filePath?.trim()) {
-      return NextResponse.json({ error: "filePath requis." }, { status: 400 });
+      return NextResponse.json({ error: "Chemin du fichier requis." }, { status: 400 });
     }
 
     const asset = await insertProjectAsset(

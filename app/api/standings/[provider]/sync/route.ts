@@ -23,7 +23,7 @@ export async function POST(
   try {
     const { provider: raw } = await params;
     if (!isProvider(raw)) {
-      return NextResponse.json({ error: "Provider inconnu." }, { status: 400 });
+      return NextResponse.json({ error: "Fournisseur inconnu." }, { status: 400 });
     }
 
     const { user } = await requireUserSession();
@@ -34,7 +34,7 @@ export async function POST(
 
     const projectId = body.projectId;
     if (!projectId) {
-      return NextResponse.json({ error: "projectId requis." }, { status: 400 });
+      return NextResponse.json({ error: "Identifiant du projet requis." }, { status: 400 });
     }
 
     const project = await getProjectForUser(projectId, user.id);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { useUnsavedChanges } from "./UnsavedChangesContext";
 import type {
   UnifiedLeagueData,
   LeagueTeamEntry,
@@ -18,7 +19,7 @@ async function uploadLogo(projectId: string, file: File): Promise<string> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? "Upload échoué.");
+    throw new Error((body as { error?: string }).error ?? "Téléversement échoué.");
   }
   const { url } = (await res.json()) as { url: string };
   return url;
@@ -64,7 +65,7 @@ function LogoButton({
             onUpload(uploaded);
           } catch (err) {
             setUploadError(
-              err instanceof Error ? err.message : "Upload échoué.",
+              err instanceof Error ? err.message : "Téléversement échoué.",
             );
           } finally {
             setUploading(false);
@@ -361,6 +362,7 @@ export function LeagueDataEditor({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { setDirty } = useUnsavedChanges();
 
   const logoByTeam = useMemo(
     () => new Map(data.standings.map((t) => [t.name, t.logo])),
@@ -386,6 +388,7 @@ export function LeagueDataEditor({
       );
       return;
     }
+    setDirty(false);
     setMessage("Enregistré.");
     setTimeout(() => setMessage(null), 3000);
   };
@@ -460,9 +463,10 @@ export function LeagueDataEditor({
               <input
                 type="text"
                 value={data.leagueName}
-                onChange={(e) =>
-                  setData((d) => ({ ...d, leagueName: e.target.value }))
-                }
+                onChange={(e) => {
+                  setData((d) => ({ ...d, leagueName: e.target.value }));
+                  setDirty(true);
+                }}
                 placeholder="Ex. Ligue de Montréal"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
               />
@@ -472,9 +476,10 @@ export function LeagueDataEditor({
               <input
                 type="text"
                 value={data.divisionName}
-                onChange={(e) =>
-                  setData((d) => ({ ...d, divisionName: e.target.value }))
-                }
+                onChange={(e) => {
+                  setData((d) => ({ ...d, divisionName: e.target.value }));
+                  setDirty(true);
+                }}
                 placeholder="Ex. Division 1"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
               />

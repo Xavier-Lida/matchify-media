@@ -19,7 +19,7 @@ export async function POST(
   try {
     const { provider: raw } = await params;
     if (!isProvider(raw)) {
-      return NextResponse.json({ error: "Provider inconnu." }, { status: 400 });
+      return NextResponse.json({ error: "Fournisseur inconnu." }, { status: 400 });
     }
 
     await requireUserSession();

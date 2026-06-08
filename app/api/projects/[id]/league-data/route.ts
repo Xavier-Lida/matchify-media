@@ -21,7 +21,7 @@ export async function PUT(
     };
 
     if (!body.data || typeof body.data !== "object") {
-      return NextResponse.json({ error: "data requis." }, { status: 400 });
+      return NextResponse.json({ error: "Données requises." }, { status: 400 });
     }
 
     await upsertLeagueData(id, body.data, body.source ?? "manual");

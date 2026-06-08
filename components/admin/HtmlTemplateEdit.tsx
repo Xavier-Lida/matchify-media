@@ -162,7 +162,7 @@ export function HtmlTemplateEdit({ template }: { template: Template }) {
 
       // Upload new HTML file if provided
       if (newHtml) {
-        setSaveStatus("Upload du HTML…");
+        setSaveStatus("Téléversement du HTML…");
         const key = `html/${slugify(nom) || "template"}-${Date.now()}.html`;
         const { error: upErr } = await supabase.storage
           .from("templates")
@@ -197,7 +197,7 @@ export function HtmlTemplateEdit({ template }: { template: Template }) {
 
       // Cover photo: manual upload takes priority over auto-generated preview
       if (coverFile) {
-        setSaveStatus("Upload de la couverture…");
+        setSaveStatus("Téléversement de la couverture…");
         const coverKey = `previews/${slugify(nom)}-cover-${Date.now()}.${coverFile.name.split(".").pop() ?? "jpg"}`;
         const { error: coverErr } = await supabase.storage
           .from("previews")
