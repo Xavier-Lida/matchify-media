@@ -463,7 +463,7 @@ export function LeagueDataEditor({
                 onChange={(e) =>
                   setData((d) => ({ ...d, leagueName: e.target.value }))
                 }
-                placeholder="Ex. Ligue de futsal de Montréal"
+                placeholder="Ex. Ligue de Montréal"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
               />
             </div>
@@ -475,7 +475,7 @@ export function LeagueDataEditor({
                 onChange={(e) =>
                   setData((d) => ({ ...d, divisionName: e.target.value }))
                 }
-                placeholder="Ex. Masculin Jeudi - Centre-Est D2"
+                placeholder="Ex. Division 1"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
               />
             </div>

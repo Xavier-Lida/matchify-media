@@ -119,8 +119,8 @@ export function mergeWithProvider(
   }));
 
   return {
-    leagueName: existing.leagueName || incoming.leagueName,
-    divisionName: existing.divisionName || incoming.divisionName,
+    leagueName: incoming.leagueName || existing.leagueName,
+    divisionName: incoming.divisionName || existing.divisionName,
     leagueLogo: existing.leagueLogo,
     standings: mergedStandings,
     schedule: incoming.schedule,

@@ -259,13 +259,42 @@ export async function scrapeStandings(
   const $ = cheerio.load(html);
   const tournamentName = cleanText($("h3").first().text()) || undefined;
 
+  function findDivisionOptionByLink(ctx: ReturnType<typeof cheerio.load>, divisionId: string) {
+    return ctx(`#filter_division option[link*="-${divisionId}/"], select[name="filter_division"] option[link*="-${divisionId}/"]`).first();
+  }
+
+  function extractDivisionOptions(ctx: ReturnType<typeof cheerio.load>) {
+    const opts: { id: string; name: string }[] = [];
+    ctx("#filter_division option, select[name='filter_division'] option").each((_, opt) => {
+      const link = ctx(opt).attr("link") ?? "";
+      const idMatch = link.match(/-(\d+)\/[^/]+\.html/);
+      const id = idMatch?.[1] ?? ctx(opt).attr("value");
+      const name = cleanText(ctx(opt).text());
+      if (id && name) opts.push({ id, name });
+    });
+    return opts;
+  }
+
   // If a specific division is already selected in the URL, parse only that page.
   const preselectedDivision = new URL(standingUrl).searchParams.get("filter_division");
   if (preselectedDivision) {
-    const divisionName =
-      cleanText($(`#filter_division option[value="${preselectedDivision}"]`).text()) ||
-      tournamentName ||
-      "Classement";
+    let divisionName = cleanText(findDivisionOptionByLink($, preselectedDivision).text());
+
+    if (!divisionName) {
+      try {
+        const tid = new URL(standingUrl).searchParams.get("tournament_id");
+        if (tid) {
+          const baseUrl = `https://www.planiligue.com/tournament_public_standing.php?tournament_id=${tid}&lang=fr`;
+          const baseHtml = await fetchHtml(baseUrl);
+          const $base = cheerio.load(baseHtml);
+          divisionName = cleanText(findDivisionOptionByLink($base, preselectedDivision).text());
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    divisionName = divisionName || tournamentName || "Classement";
     const groups = parseGroupsFromCheerio($);
     return {
       divisions: groups.length
@@ -275,12 +304,7 @@ export async function scrapeStandings(
     };
   }
 
-  const divisionOptions: { id: string; name: string }[] = [];
-  $("#filter_division option").each((_, opt) => {
-    const id = $(opt).attr("value");
-    const name = cleanText($(opt).text());
-    if (id && name) divisionOptions.push({ id, name });
-  });
+  const divisionOptions = extractDivisionOptions($);
 
   const divisionIds =
     divisionOptions.length > 0
