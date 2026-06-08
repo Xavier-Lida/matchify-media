@@ -1,12 +1,11 @@
 "use client";
 
-import { useRef, useState, type ReactElement } from "react";
+import { useRef, useState } from "react";
 import { DEFAULT_FONT_FAMILY } from "@/lib/canvas";
 import { useAvailableFonts } from "@/lib/hooks/use-available-fonts";
 import { uploadImageFile } from "@/lib/upload-image";
 import type {
   Field,
-  FieldType,
   FieldValues,
   FieldStyleOverride,
   ImageField,
@@ -329,31 +328,40 @@ function ListInput({
   );
 }
 
-const FIELD_INPUTS: {
-  [K in FieldType]: (
-    props: { field: Extract<Field, { type: K }>; fontNames: string[] } & Omit<
-      DynamicFormProps,
-      "fields"
-    >,
-  ) => ReactElement;
-} = {
-  text: TextLikeInput,
-  number: TextLikeInput,
-  image: ImageInput,
-  list: ListInput,
-};
+type EditableField = Exclude<Field, { type: "shape" }>;
 
 export function DynamicForm({ fields, ...rest }: DynamicFormProps) {
   const { names: fontNames } = useAvailableFonts();
+  const editableFields = fields.filter(
+    (f): f is EditableField => f.type !== "shape",
+  );
 
   return (
     <div className="space-y-4">
-      {fields.map((field) => {
-        const Input = FIELD_INPUTS[field.type] as (props: {
-          field: Field;
-          fontNames: string[];
-        } & Omit<DynamicFormProps, "fields">) => ReactElement;
-        return <Input key={field.key} field={field} fontNames={fontNames} {...rest} />;
+      {editableFields.map((field) => {
+        switch (field.type) {
+          case "text":
+          case "number":
+            return (
+              <TextLikeInput
+                key={field.key}
+                field={field}
+                fontNames={fontNames}
+                {...rest}
+              />
+            );
+          case "image":
+            return <ImageInput key={field.key} field={field} {...rest} />;
+          case "list":
+            return (
+              <ListInput
+                key={field.key}
+                field={field}
+                fontNames={fontNames}
+                {...rest}
+              />
+            );
+        }
       })}
     </div>
   );

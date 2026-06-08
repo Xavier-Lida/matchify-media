@@ -45,7 +45,7 @@ export function SpordleImport({
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md space-y-4 rounded-xl border border-border bg-surface p-5">
+          <div className="w-full max-w-md space-y-4 rounded-lg border border-border bg-surface p-5">
             <h3 className="text-lg font-semibold">Importer depuis Spordle</h3>
             <p className="text-sm text-muted">
               Collez l&apos;URL de la page du match sur Spordle.
@@ -70,7 +70,7 @@ export function SpordleImport({
                 type="button"
                 onClick={submit}
                 disabled={loading || !url}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                className="rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
               >
                 {loading ? "Import…" : "Importer"}
               </button>

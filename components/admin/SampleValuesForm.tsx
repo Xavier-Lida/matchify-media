@@ -11,7 +11,7 @@ import type {
 } from "@/lib/types";
 
 const inputClass =
-  "w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent";
+  "w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors";
 
 export function SampleValuesForm({
   fields,
@@ -56,13 +56,15 @@ export function SampleValuesForm({
   };
 
   return (
-    <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
+    <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h3 className="text-sm font-semibold">Valeurs d&apos;exemple</h3>
       <p className="text-xs text-muted">
         Utilisées pour générer l&apos;aperçu automatiquement à la sauvegarde.
       </p>
       <div className="space-y-3">
-        {fields.map((field) => (
+        {fields
+          .filter((field) => field.type !== "shape")
+          .map((field) => (
           <div key={field.key} className="space-y-1">
             <label className="text-sm font-medium">
               {field.label}

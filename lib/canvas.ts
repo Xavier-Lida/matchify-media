@@ -17,6 +17,7 @@ import type {
   ListField,
   ListItem,
   NumberField,
+  ShapeField,
   StyleOverrides,
   TextAlign,
   TextField,
@@ -25,6 +26,13 @@ import type {
 export const DEFAULT_FONT_FAMILY = "Arial";
 export const DEFAULT_TEXT_COLOR = "#ffffff";
 export const DEFAULT_ALIGN: TextAlign = "left";
+export const DEFAULT_CANVAS_WIDTH = 1080;
+export const DEFAULT_CANVAS_HEIGHT = 1350;
+
+/** PNG design de base présent (les templates peuvent n'avoir que formes/champs). */
+export function hasDesignPng(pngUrl: string | null | undefined): boolean {
+  return Boolean(pngUrl?.trim());
+}
 
 export interface TextInstruction {
   kind: "text";
@@ -48,9 +56,24 @@ export interface ImageInstruction {
   y: number;
   width: number;
   height: number;
+  fit?: "cover" | "contain";
 }
 
-export type RenderInstruction = TextInstruction | ImageInstruction;
+export interface ShapeInstruction {
+  kind: "shape";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill: string;
+  opacity: number;
+}
+
+export type RenderInstruction =
+  | TextInstruction
+  | ImageInstruction
+  | ShapeInstruction;
 
 export interface LayeredRenderPlan {
   background: RenderInstruction[];
@@ -60,6 +83,10 @@ export interface LayeredRenderPlan {
 
 function imageLayer(field: ImageField): ImageLayer {
   return field.layer ?? "foreground";
+}
+
+function shapeLayer(field: ShapeField): ImageLayer | "content" {
+  return field.layer ?? "content";
 }
 
 function toText(value: FieldValue | undefined): string {
@@ -118,9 +145,23 @@ const planImage: FieldPlanner<ImageField> = (field, value) => {
       y: field.y,
       width: field.width,
       height: field.height,
+      fit: field.fit ?? "cover",
     },
   ];
 };
+
+const planShape: FieldPlanner<ShapeField> = (field) => [
+  {
+    kind: "shape",
+    id: field.key,
+    x: field.x,
+    y: field.y,
+    width: field.width,
+    height: field.height,
+    fill: field.fill,
+    opacity: Math.min(1, Math.max(0, field.opacity)),
+  },
+];
 
 const planList: FieldPlanner<ListField> = (field, value, overrides) => {
   const items = asListItems(value).slice(0, field.maxItems);
@@ -158,6 +199,7 @@ const PLANNERS: {
   number: planText as FieldPlanner<NumberField>,
   image: planImage,
   list: planList,
+  shape: planShape,
 };
 
 const LAYER_TARGETS: Record<
@@ -169,6 +211,12 @@ const LAYER_TARGETS: Record<
   list: () => "content",
   image: (field) =>
     imageLayer(field as ImageField) === "background" ? "background" : "foreground",
+  shape: (field) => {
+    const layer = shapeLayer(field as ShapeField);
+    if (layer === "background") return "background";
+    if (layer === "foreground") return "foreground";
+    return "content";
+  },
 };
 
 /**
@@ -237,6 +285,27 @@ export function computeCoverCrop(
   };
 }
 
+/** Dimensions de destination pour contenir l'image entière dans la boîte (object-fit: contain, centré). */
+export function computeContainFit(
+  srcWidth: number,
+  srcHeight: number,
+  destWidth: number,
+  destHeight: number,
+): { dx: number; dy: number; dWidth: number; dHeight: number } {
+  if (srcWidth <= 0 || srcHeight <= 0 || destWidth <= 0 || destHeight <= 0) {
+    return { dx: 0, dy: 0, dWidth: destWidth, dHeight: destHeight };
+  }
+  const scale = Math.min(destWidth / srcWidth, destHeight / srcHeight);
+  const dWidth = srcWidth * scale;
+  const dHeight = srcHeight * scale;
+  return {
+    dx: (destWidth - dWidth) / 2,
+    dy: (destHeight - dHeight) / 2,
+    dWidth,
+    dHeight,
+  };
+}
+
 export function hasSampleValues(values: FieldValues | undefined): boolean {
   if (!values) return false;
   return Object.values(values).some((v) => {
@@ -256,11 +325,14 @@ const isEmptyScalar: RequiredValidator = (_field, value) =>
 const isEmptyList: RequiredValidator = (_field, value) =>
   !Array.isArray(value) || value.length === 0;
 
+const neverRequired: RequiredValidator = () => false;
+
 const REQUIRED_VALIDATORS: Record<FieldType, RequiredValidator> = {
   text: isEmptyScalar,
   number: isEmptyScalar,
   image: isEmptyScalar,
   list: isEmptyList,
+  shape: neverRequired,
 };
 
 export function getMissingRequiredFields(

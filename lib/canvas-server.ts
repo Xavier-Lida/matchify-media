@@ -9,10 +9,12 @@ import {
 import {
   buildLayeredRenderPlan,
   computeCoverCrop,
+  computeContainFit,
   toFontString,
   type ImageInstruction,
   type LayeredRenderPlan,
   type RenderInstruction,
+  type ShapeInstruction,
   type TextInstruction,
 } from "@/lib/canvas";
 import { fetchFontsFromDb } from "@/lib/fonts-db";
@@ -43,6 +45,14 @@ function drawText(ctx: SKRSContext2D, ins: TextInstruction): void {
   ctx.restore();
 }
 
+function drawShape(ctx: SKRSContext2D, ins: ShapeInstruction): void {
+  ctx.save();
+  ctx.globalAlpha = ins.opacity;
+  ctx.fillStyle = ins.fill;
+  ctx.fillRect(ins.x, ins.y, ins.width, ins.height);
+  ctx.restore();
+}
+
 async function drawImageInstruction(
   ctx: SKRSContext2D,
   ins: ImageInstruction,
@@ -55,23 +65,23 @@ async function drawImageInstruction(
     ctx.restore();
     return;
   }
-  const { sx, sy, sWidth, sHeight } = computeCoverCrop(
-    img.width,
-    img.height,
-    ins.width,
-    ins.height,
-  );
-  ctx.drawImage(
-    img,
-    sx,
-    sy,
-    sWidth,
-    sHeight,
-    ins.x,
-    ins.y,
-    ins.width,
-    ins.height,
-  );
+  if (ins.fit === "contain") {
+    const { dx, dy, dWidth, dHeight } = computeContainFit(
+      img.width,
+      img.height,
+      ins.width,
+      ins.height,
+    );
+    ctx.drawImage(img, ins.x + dx, ins.y + dy, dWidth, dHeight);
+  } else {
+    const { sx, sy, sWidth, sHeight } = computeCoverCrop(
+      img.width,
+      img.height,
+      ins.width,
+      ins.height,
+    );
+    ctx.drawImage(img, sx, sy, sWidth, sHeight, ins.x, ins.y, ins.width, ins.height);
+  }
 }
 
 const EXECUTORS: {
@@ -82,6 +92,7 @@ const EXECUTORS: {
 } = {
   text: drawText,
   image: drawImageInstruction,
+  shape: drawShape,
 };
 
 async function drawInstructions(

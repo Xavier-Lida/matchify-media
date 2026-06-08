@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Figtree, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const figtree = Figtree({
+  variable: "--font-inter-tight",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 const geistMono = Geist_Mono({
@@ -13,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Futsal Content Generator",
+  title: "Matchify Media",
   description:
     "Générez des images de contenu Instagram pour vos ligues et équipes de futsal à partir de templates prédéfinis.",
 };
@@ -25,8 +26,8 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="fr"
+      className={`${figtree.variable} ${geistMono.variable} h-full`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

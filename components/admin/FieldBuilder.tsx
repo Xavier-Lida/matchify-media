@@ -1,15 +1,68 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { moveItem, remapIndex } from "@/lib/array-move";
 import { DEFAULT_FONT_FAMILY } from "@/lib/canvas";
 import { useAvailableFonts } from "@/lib/hooks/use-available-fonts";
+import { useFieldDrag } from "@/lib/hooks/use-field-drag";
+import { useListReorder } from "@/lib/hooks/use-list-reorder";
 import type {
+  DataRequirement,
   Field,
+  FieldDataSource,
   FieldType,
   ImageLayer,
   ListSubfield,
   TextAlign,
 } from "@/lib/types";
+
+// ── Data source options (grouped) ────────────────────────────────────────────
+
+const DATA_SOURCE_GROUPS: {
+  group: string;
+  options: { value: FieldDataSource; label: string }[];
+}[] = [
+  {
+    group: "Match",
+    options: [
+      { value: "match.home",          label: "Équipe locale (receveur)" },
+      { value: "match.visitor",       label: "Équipe visiteur" },
+      { value: "match.score_home",    label: "Score équipe locale" },
+      { value: "match.score_visitor", label: "Score équipe visiteur" },
+      { value: "match.date",          label: "Date du match" },
+      { value: "match.time",          label: "Heure du match" },
+      { value: "match.home_logo",     label: "Logo équipe locale" },
+      { value: "match.visitor_logo",  label: "Logo équipe visiteur" },
+    ],
+  },
+  {
+    group: "Équipe",
+    options: [
+      { value: "team.name",     label: "Nom de l'équipe" },
+      { value: "team.logo",     label: "Logo de l'équipe" },
+      { value: "team.pts",      label: "Points (PTS)" },
+      { value: "team.position", label: "Position au classement" },
+      { value: "team.pj",       label: "Matchs joués (PJ)" },
+      { value: "team.v",        label: "Victoires (V)" },
+      { value: "team.n",        label: "Nuls (N)" },
+      { value: "team.d",        label: "Défaites (D)" },
+      { value: "team.bp",       label: "Buts pour (BP)" },
+      { value: "team.bc",       label: "Buts contre (BC)" },
+    ],
+  },
+  {
+    group: "Ligue",
+    options: [
+      { value: "league.name",     label: "Nom de la ligue" },
+      { value: "league.division", label: "Nom de la division" },
+      { value: "league.logo",     label: "Logo de la ligue" },
+    ],
+  },
+  {
+    group: "Classement",
+    options: [{ value: "standings.json", label: "Classement complet (JSON)" }],
+  },
+];
 
 interface FieldBuilderProps {
   backgroundUrl: string;
@@ -17,6 +70,7 @@ interface FieldBuilderProps {
   canvasHeight: number;
   fields: Field[];
   onChange: (fields: Field[]) => void;
+  requirements?: DataRequirement[];
 }
 
 /** Brouillon « superset » couvrant toutes les propriétés possibles. */
@@ -37,7 +91,13 @@ interface Draft {
   rowHeight: number;
   maxItems: number;
   subfields: ListSubfield[];
-  layer: ImageLayer;
+  layer: ImageLayer | "content";
+  fill: string;
+  opacity: number;
+  dataSource: FieldDataSource | "";
+  requirementId: string;
+  fit: "cover" | "contain";
+  userEditable: boolean;
 }
 
 function emptyDraft(): Draft {
@@ -59,6 +119,12 @@ function emptyDraft(): Draft {
     maxItems: 8,
     subfields: [],
     layer: "foreground",
+    fill: "#000000",
+    opacity: 0.5,
+    dataSource: "",
+    requirementId: "",
+    fit: "cover",
+    userEditable: false,
   };
 }
 
@@ -81,69 +147,81 @@ function draftFromField(field: Field): Draft {
     base.width = field.width;
     base.height = field.height;
     base.layer = field.layer ?? "foreground";
+    base.fit = field.fit ?? "cover";
+  }
+  if (field.type === "shape") {
+    base.width = field.width;
+    base.height = field.height;
+    base.fill = field.fill;
+    base.opacity = field.opacity;
+    base.layer = field.layer ?? "content";
   }
   if (field.type === "list") {
     base.rowHeight = field.rowHeight;
     base.maxItems = field.maxItems;
     base.subfields = field.subfields;
   }
+  base.dataSource = field.dataSource ?? "";
+  base.requirementId = field.requirementId ?? "";
+  base.userEditable = field.userEditable ?? false;
   return base;
+}
+
+function dataSourceProps(d: Draft) {
+  return {
+    ...(d.dataSource ? { dataSource: d.dataSource as FieldDataSource } : {}),
+    ...(d.requirementId ? { requirementId: d.requirementId } : {}),
+  };
 }
 
 // Assemblage du Field final selon le type (handler map — pas de if/else).
 const FIELD_ASSEMBLERS: Record<FieldType, (d: Draft) => Field> = {
   text: (d) => ({
-    key: d.key,
-    label: d.label,
-    type: "text",
-    x: d.x,
-    y: d.y,
-    required: d.required,
-    fontSize: d.fontSize,
-    fontFamily: d.fontFamily,
-    bold: d.bold,
-    color: d.color,
-    align: d.align,
+    key: d.key, label: d.label, type: "text",
+    x: d.x, y: d.y, required: d.required,
+    fontSize: d.fontSize, fontFamily: d.fontFamily,
+    bold: d.bold, color: d.color, align: d.align,
+    ...(d.userEditable ? { userEditable: true } : {}),
+    ...dataSourceProps(d),
   }),
   number: (d) => ({
-    key: d.key,
-    label: d.label,
-    type: "number",
-    x: d.x,
-    y: d.y,
-    required: d.required,
-    fontSize: d.fontSize,
-    fontFamily: d.fontFamily,
-    bold: d.bold,
-    color: d.color,
-    align: d.align,
+    key: d.key, label: d.label, type: "number",
+    x: d.x, y: d.y, required: d.required,
+    fontSize: d.fontSize, fontFamily: d.fontFamily,
+    bold: d.bold, color: d.color, align: d.align,
+    ...(d.userEditable ? { userEditable: true } : {}),
+    ...dataSourceProps(d),
   }),
   image: (d) => ({
-    key: d.key,
-    label: d.label,
-    type: "image",
-    x: d.x,
-    y: d.y,
-    required: d.required,
-    width: d.width,
-    height: d.height,
-    ...(d.layer !== "foreground" ? { layer: d.layer } : {}),
+    key: d.key, label: d.label, type: "image",
+    x: d.x, y: d.y, required: d.required,
+    width: d.width, height: d.height,
+    ...(d.layer !== "foreground" ? { layer: d.layer as ImageLayer } : {}),
+    ...(d.fit !== "cover" ? { fit: d.fit } : {}),
+    ...dataSourceProps(d),
   }),
+  shape: (d) => {
+    const shape = {
+      key: d.key, label: d.label, type: "shape" as const,
+      x: d.x, y: d.y, required: false,
+      width: d.width, height: d.height,
+      fill: d.fill, opacity: d.opacity,
+    };
+    if (d.layer === "background" || d.layer === "foreground") {
+      return { ...shape, layer: d.layer };
+    }
+    return shape;
+  },
   list: (d) => ({
-    key: d.key,
-    label: d.label,
-    type: "list",
-    x: d.x,
-    y: d.y,
-    required: d.required,
-    rowHeight: d.rowHeight,
-    maxItems: d.maxItems,
-    subfields: d.subfields,
+    key: d.key, label: d.label, type: "list",
+    x: d.x, y: d.y, required: d.required,
+    rowHeight: d.rowHeight, maxItems: d.maxItems, subfields: d.subfields,
+    ...dataSourceProps(d),
   }),
 };
 
 const numInput =
-  "w-full rounded border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-accent";
+  "w-full rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors";
 
 export function FieldBuilder({
   backgroundUrl,
@@ -151,11 +229,14 @@ export function FieldBuilder({
   canvasHeight,
   fields,
   onChange,
+  requirements = [],
 }: FieldBuilderProps) {
   const { names: fontNames } = useAvailableFonts();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
@@ -194,33 +275,81 @@ export function FieldBuilder({
   const removeField = (index: number) =>
     onChange(fields.filter((_, i) => i !== index));
 
+  const updateFieldPosition = (index: number, x: number, y: number) => {
+    const clampedX = Math.max(0, Math.min(x, canvasWidth - 1));
+    const clampedY = Math.max(0, Math.min(y, canvasHeight - 1));
+    onChange(
+      fields.map((f, i) => (i === index ? { ...f, x: clampedX, y: clampedY } : f)),
+    );
+    if (editingIndex === index && draft) {
+      setDraft((prev) =>
+        prev ? { ...prev, x: clampedX, y: clampedY } : prev,
+      );
+    }
+    setSelectedIndex(index);
+  };
+
+  const getCanvasRect = () => canvasRef.current?.getBoundingClientRect() ?? null;
+
+  const reorderFields = useCallback(
+    (from: number, to: number) => {
+      onChange(moveItem(fields, from, to));
+      setSelectedIndex((prev) => remapIndex(prev, from, to));
+      setEditingIndex((prev) => remapIndex(prev, from, to));
+    },
+    [fields, onChange],
+  );
+
+  const { draggingIndex, dropTargetIndex, getGripProps } = useListReorder({
+    itemCount: fields.length,
+    onReorder: reorderFields,
+  });
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
       {/* Aperçu PNG + overlays */}
       <div ref={containerRef}>
         <div
-          className="relative overflow-hidden rounded-xl border border-border bg-surface-2"
+          ref={canvasRef}
+          className="relative overflow-hidden rounded-lg border border-border bg-surface-2"
           style={{
             width: canvasWidth * scale,
             height: canvasHeight * scale,
             maxWidth: "100%",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={backgroundUrl}
-            alt="Fond du template"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
+          {backgroundUrl.trim() ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={backgroundUrl}
+              alt="Fond du template"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <div
+              className="absolute inset-0 bg-surface-2"
+              aria-label="Canvas sans PNG de fond"
+            />
+          )}
           {fields.map((field, index) => (
             <FieldOverlay
-              key={`${field.key}-${index}`}
+              key={field.key}
               field={field}
               scale={scale}
-              onClick={() => openEdit(index)}
+              selected={selectedIndex === index}
+              getCanvasRect={getCanvasRect}
+              onPositionChange={(x, y) => updateFieldPosition(index, x, y)}
+              onClick={() => {
+                setSelectedIndex(index);
+                openEdit(index);
+              }}
             />
           ))}
         </div>
+        <p className="mt-2 text-xs text-muted">
+          Glissez sur le canvas pour positionner · Glissez dans la liste pour
+          l&apos;ordre · Clic pour éditer
+        </p>
       </div>
 
       {/* Liste des champs */}
@@ -228,20 +357,40 @@ export function FieldBuilder({
         <button
           type="button"
           onClick={openCreate}
-          className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:opacity-90"
+          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)] transition-colors"
         >
           + Ajouter un champ
         </button>
+        {fields.length > 0 ? (
+          <p className="text-xs text-muted">
+            <span className="font-medium text-foreground">Ordre d&apos;affichage</span>
+            {" "}
+            — du bas vers le haut sur le visuel. Glissez pour réorganiser.
+          </p>
+        ) : null}
         <ul className="space-y-2">
           {fields.map((field, index) => (
             <li
-              key={`${field.key}-${index}`}
-              className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+              key={field.key}
+              data-field-index={index}
+              className={`flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-2 text-sm transition-opacity ${
+                draggingIndex === index ? "opacity-50" : ""
+              } ${
+                dropTargetIndex === index ? "border-t-2 border-t-accent" : ""
+              } ${
+                index === fields.length - 1 && dropTargetIndex === fields.length
+                  ? "border-b-2 border-b-accent"
+                  : ""
+              }`}
             >
+              <span {...getGripProps(index)}>⋮⋮</span>
+              <span className="shrink-0 w-6 text-center text-xs tabular-nums text-muted">
+                #{index + 1}
+              </span>
               <button
                 type="button"
                 onClick={() => openEdit(index)}
-                className="text-left"
+                className="min-w-0 flex-1 text-left"
               >
                 <span className="font-medium">{field.label}</span>
                 <span className="ml-2 text-xs text-muted">
@@ -249,12 +398,15 @@ export function FieldBuilder({
                   {field.type === "image"
                     ? ` · ${field.layer === "background" ? "arrière-plan" : "premier plan"}`
                     : ""}
+                  {field.type === "shape"
+                    ? ` · forme${field.layer ? ` · ${field.layer}` : " · contenu"}`
+                    : ""}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => removeField(index)}
-                className="text-xs text-muted hover:text-red-400"
+                className="shrink-0 text-xs text-muted hover:text-red-400"
               >
                 ✕
               </button>
@@ -268,6 +420,7 @@ export function FieldBuilder({
           draft={draft}
           setDraft={setDraft}
           fontNames={fontNames}
+          requirements={requirements}
           onSave={save}
           onCancel={cancel}
           isEdit={editingIndex !== null}
@@ -280,22 +433,68 @@ export function FieldBuilder({
 function FieldOverlay({
   field,
   scale,
+  selected,
+  getCanvasRect,
+  onPositionChange,
   onClick,
 }: {
   field: Field;
   scale: number;
+  selected: boolean;
+  getCanvasRect: () => DOMRect | null;
+  onPositionChange: (x: number, y: number) => void;
   onClick: () => void;
 }) {
   const left = field.x * scale;
   const top = field.y * scale;
+  const selectedRing = selected
+    ? "ring-2 ring-accent ring-offset-1 ring-offset-transparent"
+    : "";
+
+  const drag = useFieldDrag({
+    scale,
+    getCanvasRect,
+    onDragEnd: onPositionChange,
+    onClick,
+  });
+
+  const pointerHandlers = {
+    onPointerDown: drag.onPointerDown,
+    onPointerMove: drag.onPointerMove,
+    onPointerUp: drag.onPointerUp,
+  };
+
+  const cursorClass = drag.dragging
+    ? "cursor-grabbing"
+    : "cursor-grab touch-none";
+
+  if (field.type === "shape") {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        className={`absolute border border-accent/60 ${selectedRing} ${cursorClass}`}
+        style={{
+          left,
+          top,
+          width: field.width * scale,
+          height: field.height * scale,
+          backgroundColor: field.fill,
+          opacity: field.opacity,
+        }}
+        title={field.label}
+        {...pointerHandlers}
+      />
+    );
+  }
 
   if (field.type === "image") {
     const isBg = field.layer === "background";
     return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`absolute border-2 bg-accent/10 ${
+      <div
+        role="button"
+        tabIndex={0}
+        className={`absolute border-2 bg-accent/10 ${selectedRing} ${cursorClass} ${
           isBg
             ? "border-dotted border-emerald-400/90"
             : "border-dashed border-accent/80"
@@ -307,6 +506,7 @@ function FieldOverlay({
           height: field.height * scale,
         }}
         title={`${field.label} (${isBg ? "arrière-plan" : "premier plan"})`}
+        {...pointerHandlers}
       />
     );
   }
@@ -320,10 +520,10 @@ function FieldOverlay({
         : "none";
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="absolute whitespace-nowrap rounded bg-accent/20 px-1 leading-tight outline outline-1 outline-accent/60"
+    <div
+      role="button"
+      tabIndex={0}
+      className={`absolute whitespace-nowrap rounded bg-accent/20 px-1 leading-tight outline outline-1 outline-accent/60 ${selectedRing} ${cursorClass}`}
       style={{
         left,
         top,
@@ -333,9 +533,10 @@ function FieldOverlay({
           ("fontSize" in field ? field.fontSize : 18) * scale,
       }}
       title={field.label}
+      {...pointerHandlers}
     >
       {field.label}
-    </button>
+    </div>
   );
 }
 
@@ -343,6 +544,7 @@ function FieldModal({
   draft,
   setDraft,
   fontNames,
+  requirements,
   onSave,
   onCancel,
   isEdit,
@@ -350,6 +552,7 @@ function FieldModal({
   draft: Draft;
   setDraft: React.Dispatch<React.SetStateAction<Draft | null>>;
   fontNames: string[];
+  requirements: DataRequirement[];
   onSave: () => void;
   onCancel: () => void;
   isEdit: boolean;
@@ -359,7 +562,7 @@ function FieldModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4">
-      <div className="my-8 w-full max-w-lg space-y-4 rounded-xl border border-border bg-surface p-5">
+      <div className="my-8 w-full max-w-lg space-y-4 rounded-lg border border-border bg-surface p-5">
         <h3 className="text-lg font-semibold">
           {isEdit ? "Modifier le champ" : "Nouveau champ"}
         </h3>
@@ -389,19 +592,38 @@ function FieldModal({
               <option value="text">text</option>
               <option value="number">number</option>
               <option value="image">image</option>
+              <option value="shape">shape (rectangle)</option>
               <option value="list">list</option>
             </select>
           </Labeled>
-          <Labeled label="Requis">
-            <label className="flex items-center gap-2 py-1 text-sm">
-              <input
-                type="checkbox"
-                checked={draft.required}
-                onChange={(e) => set("required", e.target.checked)}
-              />
-              Champ obligatoire
-            </label>
-          </Labeled>
+          {draft.type !== "shape" ? (
+            <Labeled label="Requis">
+              <label className="flex items-center gap-2 py-1 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.required}
+                  onChange={(e) => set("required", e.target.checked)}
+                />
+                Champ obligatoire
+              </label>
+            </Labeled>
+          ) : (
+            <div />
+          )}
+          {(draft.type === "text" || draft.type === "number") ? (
+            <Labeled label="Modifiable">
+              <label className="flex items-center gap-2 py-1 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.userEditable}
+                  onChange={(e) => set("userEditable", e.target.checked)}
+                />
+                Saisie utilisateur
+              </label>
+            </Labeled>
+          ) : (
+            <div />
+          )}
           <Labeled label="X (px)">
             <input
               type="number"
@@ -422,6 +644,52 @@ function FieldModal({
 
         <TypeSpecificFields draft={draft} set={set} fontNames={fontNames} />
 
+        {/* Source de données */}
+        {draft.type !== "shape" && (
+          <div className="space-y-2 border-t border-border pt-3">
+            <span className="text-xs font-medium text-muted">
+              Source de données (pré-remplissage auto)
+            </span>
+            <select
+              className={numInput}
+              value={draft.dataSource}
+              onChange={(e) =>
+                set("dataSource", e.target.value as FieldDataSource | "")
+              }
+            >
+              <option value="">— Aucune —</option>
+              {DATA_SOURCE_GROUPS.map((group) => (
+                <optgroup key={group.group} label={group.group}>
+                  {group.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            {draft.dataSource && requirements.length > 1 && (
+              <div className="space-y-1">
+                <span className="text-xs text-muted">
+                  Lier au requirement (si plusieurs du même type)
+                </span>
+                <select
+                  className={numInput}
+                  value={draft.requirementId}
+                  onChange={(e) => set("requirementId", e.target.value)}
+                >
+                  <option value="">— Premier disponible —</option>
+                  {requirements.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label || r.id} ({r.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
@@ -434,7 +702,7 @@ function FieldModal({
             type="button"
             onClick={onSave}
             disabled={!draft.key.trim() || !draft.label.trim()}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+            className="rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
           >
             Enregistrer
           </button>
@@ -471,7 +739,16 @@ function TypeSpecificFields({
             <option value="foreground">Premier plan</option>
           </select>
         </Labeled>
-        <div />
+        <Labeled label="Ajustement">
+          <select
+            className={numInput}
+            value={draft.fit}
+            onChange={(e) => set("fit", e.target.value as "cover" | "contain")}
+          >
+            <option value="cover">Cover (recadré)</option>
+            <option value="contain">Contain (logo entier)</option>
+          </select>
+        </Labeled>
         <Labeled label="Largeur (px)">
           <input
             type="number"
@@ -491,6 +768,62 @@ function TypeSpecificFields({
       </div>
     ),
     list: () => <ListFields draft={draft} set={set} fontNames={fontNames} />,
+    shape: () => (
+      <div className="grid grid-cols-2 gap-3">
+        <Labeled label="Couche">
+          <select
+            className={numInput}
+            value={draft.layer}
+            onChange={(e) =>
+              set("layer", e.target.value as ImageLayer | "content")
+            }
+          >
+            <option value="content">Contenu (sous le texte si avant dans la liste)</option>
+            <option value="background">Arrière-plan (sous le PNG)</option>
+            <option value="foreground">Premier plan (sur le texte)</option>
+          </select>
+        </Labeled>
+        <div />
+        <Labeled label="Largeur (px)">
+          <input
+            type="number"
+            className={numInput}
+            value={draft.width}
+            onChange={(e) => set("width", Number(e.target.value))}
+          />
+        </Labeled>
+        <Labeled label="Hauteur (px)">
+          <input
+            type="number"
+            className={numInput}
+            value={draft.height}
+            onChange={(e) => set("height", Number(e.target.value))}
+          />
+        </Labeled>
+        <Labeled label="Couleur">
+          <input
+            type="color"
+            className="h-8 w-full rounded border border-border bg-surface"
+            value={draft.fill}
+            onChange={(e) => set("fill", e.target.value)}
+          />
+        </Labeled>
+        <Labeled label="Opacité">
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            className="w-full"
+            value={draft.opacity}
+            onChange={(e) => set("opacity", Number(e.target.value))}
+          />
+          <span className="text-xs text-muted">
+            {Math.round(draft.opacity * 100)} %
+          </span>
+        </Labeled>
+      </div>
+    ),
   };
   return sections[draft.type]();
 }

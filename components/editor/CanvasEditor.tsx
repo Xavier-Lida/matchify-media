@@ -6,10 +6,12 @@ import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect } from "reac
 import { useImage } from "./useImage";
 import {
   computeCoverCrop,
+  computeContainFit,
   toFontString,
   type ImageInstruction,
   type LayeredRenderPlan,
   type RenderInstruction,
+  type ShapeInstruction,
   type TextInstruction,
 } from "@/lib/canvas";
 import { useAvailableFonts } from "@/lib/hooks/use-available-fonts";
@@ -65,6 +67,26 @@ function PlanImage({ ins }: { ins: ImageInstruction }) {
   if (status === "loaded" && image) {
     const naturalWidth = image.width;
     const naturalHeight = image.height;
+
+    if (ins.fit === "contain") {
+      const { dx, dy, dWidth, dHeight } = computeContainFit(
+        naturalWidth,
+        naturalHeight,
+        ins.width,
+        ins.height,
+      );
+      return (
+        <KonvaImage
+          image={image}
+          x={ins.x + dx}
+          y={ins.y + dy}
+          width={dWidth}
+          height={dHeight}
+          listening={false}
+        />
+      );
+    }
+
     const { sx, sy, sWidth, sHeight } = computeCoverCrop(
       naturalWidth,
       naturalHeight,
@@ -96,6 +118,20 @@ function PlanImage({ ins }: { ins: ImageInstruction }) {
   );
 }
 
+function PlanShape({ ins }: { ins: ShapeInstruction }) {
+  return (
+    <Rect
+      x={ins.x}
+      y={ins.y}
+      width={ins.width}
+      height={ins.height}
+      fill={ins.fill}
+      opacity={ins.opacity}
+      listening={false}
+    />
+  );
+}
+
 function Background({
   src,
   width,
@@ -105,7 +141,14 @@ function Background({
   width: number;
   height: number;
 }) {
-  const { image, status } = useImage(src);
+  const { image, status } = useImage(src.trim() ? src : undefined);
+
+  if (!src.trim()) {
+    return (
+      <Rect x={0} y={0} width={width} height={height} fill="#18181b" listening={false} />
+    );
+  }
+
   if (status === "loaded" && image) {
     return (
       <KonvaImage
@@ -130,6 +173,7 @@ const INSTRUCTION_COMPONENTS: {
 } = {
   text: PlanText,
   image: PlanImage,
+  shape: PlanShape,
 };
 
 function InstructionList({ instructions }: { instructions: RenderInstruction[] }) {
@@ -187,7 +231,7 @@ export default function CanvasEditor({
   return (
     <div ref={containerRef} className="w-full">
       <div
-        className="overflow-hidden rounded-xl border border-border bg-surface-2"
+        className="overflow-hidden rounded-lg border border-border bg-surface-2"
         style={{ width: config.canvasWidth * scale, maxWidth: "100%" }}
       >
         <Stage

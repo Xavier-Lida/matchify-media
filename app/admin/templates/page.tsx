@@ -24,7 +24,7 @@ export default async function AdminTemplatesPage() {
           </div>
           <Link
             href="/admin/templates/new"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:opacity-90"
+            className="rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)] transition-colors"
           >
             + Nouveau
           </Link>

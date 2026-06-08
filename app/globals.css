@@ -1,33 +1,85 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0a0a0b;
-  --foreground: #f4f4f5;
-  --surface: #161618;
-  --surface-2: #1f1f23;
-  --border: #2a2a30;
-  --muted: #a1a1aa;
-  --accent: #22c55e;
-  --accent-foreground: #04130a;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-border: var(--info-border);
+  --color-success: var(--success);
+  --font-sans: var(--font-inter-tight);
   --font-mono: var(--font-geist-mono);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+:root {
+  --background: #f4f8fc;
+  --foreground: #1a2332;
+
+  --surface: #ffffff;
+  --surface-2: #dce8f2;
+
+  --border: #dce8f2;
+  --input: #b8c8d8;
+  --ring: #b8c8d8;
+
+  --muted: #6b7a8f;
+
+  --accent: #dce8f2;
+  --accent-foreground: #1a2332;
+
+  --primary: #5b9bd5;
+  --primary-hover: #4a86be;
+  --primary-foreground: #ffffff;
+
+  --destructive: #cf2d56;
+  --radius: 12px;
+
+  --info: #e8f4fc;
+  --info-foreground: #0e3a5c;
+  --info-border: #9ecae8;
+  --success: #2d9d6e;
 }
 
-/* Polices canvas : chargées dynamiquement via FontFace (lib/fonts-client.ts) */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply bg-background font-sans;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  /* Supprime le flash de focus au clic souris — garde uniquement le focus clavier */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ring) 60%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .banner-info {
+    @apply rounded-md border border-info-border/90 bg-info px-3 py-2.5 text-[13px] leading-[1.45] text-info-foreground;
+  }
+}
+
+/* Canvas font stacks — chargées dynamiquement via FontFace (lib/fonts-client.ts) */

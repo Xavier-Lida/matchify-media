@@ -110,7 +110,7 @@ export function FontsManager() {
 
   return (
     <div className="space-y-8">
-      <div className="max-w-lg space-y-4 rounded-xl border border-border bg-surface p-5">
+      <div className="max-w-lg space-y-4 rounded-lg border border-border bg-surface p-5">
         <h2 className="text-lg font-semibold">Ajouter une police</h2>
         <div className="space-y-1">
           <label className="text-sm font-medium">Nom (fontFamily)</label>
@@ -144,7 +144,7 @@ export function FontsManager() {
           type="button"
           disabled={busy}
           onClick={addFont}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+          className="rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50"
         >
           {busy ? "Enregistrement…" : "Ajouter"}
         </button>

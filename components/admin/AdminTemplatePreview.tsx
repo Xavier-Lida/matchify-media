@@ -10,7 +10,7 @@ const CanvasEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex aspect-square w-full max-w-md items-center justify-center rounded-xl border border-border bg-surface-2 text-sm text-muted">
+      <div className="flex aspect-square w-full max-w-md items-center justify-center rounded-lg border border-border bg-surface-2 text-sm text-muted">
         Chargement de l&apos;aperçu…
       </div>
     ),

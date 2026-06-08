@@ -22,23 +22,16 @@ export async function POST(request: Request) {
     const { supabase } = await requireAdminSession();
     const body = (await request.json()) as PreviewBody;
 
-    const { png_url, json_config, storage_key } = body;
-    if (!png_url || !json_config?.fields) {
+    const { png_url = "", json_config, storage_key } = body;
+    if (!json_config?.fields) {
       return NextResponse.json({ error: "Données invalides." }, { status: 400 });
     }
 
-    const sampleValues = json_config.sampleValues;
-    if (!hasSampleValues(sampleValues)) {
-      return NextResponse.json(
-        { error: "Aucune valeur d'exemple renseignée." },
-        { status: 400 },
-      );
-    }
-
+    const sampleValues = json_config.sampleValues ?? {};
     const buffer = await renderTemplateToBuffer({
       config: json_config,
       pngUrl: png_url,
-      values: sampleValues!,
+      values: hasSampleValues(sampleValues) ? sampleValues : {},
       format: "png",
     });
 

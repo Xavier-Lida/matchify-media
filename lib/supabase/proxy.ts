@@ -49,6 +49,9 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAdminArea = pathname.startsWith("/admin");
   const isLoginPage = pathname === "/admin/login";
+  const isUserAuthPage = pathname === "/login" || pathname === "/signup";
+  const isProtectedUserArea =
+    pathname.startsWith("/dashboard") || pathname.startsWith("/projects");
 
   if (isAdminArea && !isLoginPage) {
     if (!isAuthenticated) {
@@ -65,6 +68,16 @@ export async function updateSession(request: NextRequest) {
 
   if (isLoginPage && isAdmin) {
     return NextResponse.redirect(new URL("/admin", request.url));
+  }
+
+  if (isProtectedUserArea && !isAuthenticated) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (isUserAuthPage && isAuthenticated && !isAdminArea) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return supabaseResponse;

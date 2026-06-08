@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/SiteHeader";
 import { TemplateForm } from "@/components/admin/TemplateForm";
+import { HtmlTemplateEdit } from "@/components/admin/HtmlTemplateEdit";
 import { getTemplateById } from "@/lib/templates";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,8 @@ export default async function EditTemplatePage({
     notFound();
   }
 
+  const isHtml = template.json_config.templateMode === "html";
+
   return (
     <>
       <SiteHeader />
@@ -33,7 +36,11 @@ export default async function EditTemplatePage({
             Modifier — {template.nom}
           </h1>
         </div>
-        <TemplateForm mode="edit" initial={template} />
+        {isHtml ? (
+          <HtmlTemplateEdit template={template} />
+        ) : (
+          <TemplateForm mode="edit" initial={template} />
+        )}
       </main>
     </>
   );

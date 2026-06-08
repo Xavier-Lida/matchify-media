@@ -30,7 +30,7 @@ export function TemplatesManager({ templates }: { templates: Template[] }) {
 
   if (templates.length === 0) {
     return (
-      <p className="rounded-xl border border-border bg-surface p-8 text-center text-muted">
+      <p className="rounded-lg border border-border bg-surface p-8 text-center text-muted">
         Aucun template. Créez-en un pour commencer.
       </p>
     );
@@ -52,12 +52,18 @@ export function TemplatesManager({ templates }: { templates: Template[] }) {
           {templates.map((t) => (
             <tr key={t.id} className="border-t border-border bg-surface-2/40">
               <td className="px-4 py-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={t.preview_url}
-                  alt=""
-                  className="h-12 w-12 rounded object-cover"
-                />
+                {t.preview_url?.trim() ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={t.preview_url}
+                    alt=""
+                    className="h-12 w-12 rounded object-cover"
+                  />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded bg-surface-2 text-[10px] text-muted">
+                    —
+                  </div>
+                )}
               </td>
               <td className="px-4 py-3 font-medium">{t.nom}</td>
               <td className="px-4 py-3 text-muted">
@@ -67,8 +73,8 @@ export function TemplatesManager({ templates }: { templates: Template[] }) {
                 <span
                   className={
                     t.actif
-                      ? "rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent"
-                      : "rounded-full bg-surface px-2 py-0.5 text-xs text-muted"
+                      ? "rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                      : "rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted"
                   }
                 >
                   {t.actif ? "Actif" : "Inactif"}
@@ -78,7 +84,7 @@ export function TemplatesManager({ templates }: { templates: Template[] }) {
                 <div className="flex justify-end gap-2">
                   <Link
                     href={`/admin/templates/${t.id}/edit`}
-                    className="rounded border border-border px-2.5 py-1 text-xs hover:border-accent"
+                    className="rounded-md border border-input px-2.5 py-1 text-xs text-foreground hover:border-primary/40 transition-colors"
                   >
                     Éditer
                   </Link>
@@ -94,7 +100,7 @@ export function TemplatesManager({ templates }: { templates: Template[] }) {
                     type="button"
                     disabled={busyId === t.id}
                     onClick={() => remove(t)}
-                    className="rounded border border-border px-2.5 py-1 text-xs text-red-400 hover:border-red-400 disabled:opacity-50"
+                    className="rounded-md border border-input px-2.5 py-1 text-xs text-destructive hover:border-destructive/50 transition-colors disabled:opacity-50"
                   >
                     Supprimer
                   </button>
