@@ -11,6 +11,10 @@ export const phosphorIconNames = [
   "shield",
   "arrow-clockwise",
   "check-circle",
+  "plugs",
+  "database",
+  "images",
+  "arrow-square-out",
 ] as const
 
 export type PhosphorIconName = (typeof phosphorIconNames)[number]

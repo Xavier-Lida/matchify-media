@@ -12,10 +12,12 @@ export default async function ProjectDataPage({
   const initialData = fromRaw(row?.data ?? {});
 
   return (
-    <LeagueDataEditor
-      projectId={id}
-      initialData={initialData}
-      source={row?.source ?? "manual"}
-    />
+    <div className="mx-auto max-w-2xl">
+      <LeagueDataEditor
+        projectId={id}
+        initialData={initialData}
+        source={row?.source ?? "manual"}
+      />
+    </div>
   );
 }

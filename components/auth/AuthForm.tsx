@@ -21,9 +21,10 @@ export function AuthForm({
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [signedUp, setSignedUp] = useState(false);
   const configured = isSupabaseConfigured();
 
   const submit = async (e: React.FormEvent) => {
@@ -33,11 +34,16 @@ export function AuthForm({
     const supabase = createClient();
 
     if (mode === "signup") {
+      if (password !== confirm) {
+        setLoading(false);
+        setError("Les mots de passe ne correspondent pas.");
+        return;
+      }
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { display_name: displayName || undefined },
+          data: { display_name: email },
         },
       });
       setLoading(false);
@@ -45,8 +51,7 @@ export function AuthForm({
         setError(signUpError.message);
         return;
       }
-      router.replace(redirectTo);
-      router.refresh();
+      setSignedUp(true);
       return;
     }
 
@@ -81,26 +86,21 @@ export function AuthForm({
           </p>
         </div>
 
-        {!configured ? (
+        {signedUp ? (
+          <div className="space-y-3 rounded-md border border-success/30 bg-success/5 p-4">
+            <p className="text-sm font-medium text-foreground">
+              Vérifiez votre boîte courriel
+            </p>
+            <p className="text-sm text-muted leading-relaxed">
+              Un lien de confirmation a été envoyé à <strong className="text-foreground">{email}</strong>. Cliquez sur le lien pour activer votre compte.
+            </p>
+          </div>
+        ) : !configured ? (
           <p className="rounded-md border border-border bg-surface-2 p-3 text-sm text-muted">
             Supabase n&apos;est pas configuré. Voir <code>.env.example</code>.
           </p>
         ) : (
           <form onSubmit={submit} className="space-y-4">
-            {mode === "signup" ? (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground" htmlFor="displayName">
-                  Nom affiché
-                </label>
-                <input
-                  id="displayName"
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            ) : null}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground" htmlFor="email">
                 Courriel
@@ -128,6 +128,22 @@ export function AuthForm({
                 className={inputClass}
               />
             </div>
+            {mode === "signup" && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground" htmlFor="confirm">
+                  Confirmez le mot de passe
+                </label>
+                <input
+                  id="confirm"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            )}
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
             <button
               type="submit"

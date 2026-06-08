@@ -10,5 +10,9 @@ export default async function ProjectIntegrationsPage({
   const integrations = await listIntegrations(id);
   const existing = integrations[0] ?? null;
 
-  return <IntegrationsPanel projectId={id} existing={existing} />;
+  return (
+    <div className="mx-auto max-w-xl">
+      <IntegrationsPanel projectId={id} existing={existing} />
+    </div>
+  );
 }

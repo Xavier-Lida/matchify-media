@@ -78,15 +78,25 @@ function ConnectedView({
         </span>
       </div>
 
-      {/* URL (read-only) */}
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">
-          {integration.provider === "matchify" ? "ID de la ligue" : "URL de la ligue"}
-        </p>
-        <p className="rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-muted break-all">
-          {configUrl}
-        </p>
-      </div>
+      {/* League link */}
+      {configUrl.startsWith("http") ? (
+        <a
+          href={configUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-md border border-input bg-surface px-5 py-2 text-sm font-medium text-foreground hover:border-primary/40 hover:bg-accent transition-colors"
+        >
+          <PhosphorIcon name="arrow-square-out" className="size-4" />
+          Visiter la ligue
+        </a>
+      ) : (
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium text-foreground">ID de la ligue</p>
+          <p className="rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-muted">
+            {configUrl}
+          </p>
+        </div>
+      )}
 
       {lastSync && (
         <p className="text-xs text-muted">

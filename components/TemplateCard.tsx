@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { TEMPLATE_TYPE_LABELS, type Template } from "@/lib/types";
 
-export function TemplateCard({ template }: { template: Template }) {
+export function TemplateCard({ template, backHref }: { template: Template; backHref?: string }) {
   const [imgError, setImgError] = useState(false);
   const hasPreview = Boolean(template.preview_url?.trim()) && !imgError;
 
@@ -42,7 +42,7 @@ export function TemplateCard({ template }: { template: Template }) {
           </p>
         )}
         <Link
-          href={`/template/${template.id}`}
+          href={backHref ? `/template/${template.id}?back=${encodeURIComponent(backHref)}` : `/template/${template.id}`}
           className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)] transition-colors"
         >
           Utiliser →

@@ -7,7 +7,6 @@ const SEGMENTS = [
   { suffix: "", label: "Aperçu" },
   { suffix: "/integrations", label: "Connexion ligue" },
   { suffix: "/data", label: "Données ligue" },
-  { suffix: "/history", label: "Historique" },
   { suffix: "/photos", label: "Banque photos" },
 ] as const;
 

@@ -17,10 +17,14 @@ export const dynamic = "force-dynamic";
 
 export default async function TemplatePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ back?: string }>;
 }) {
   const { id } = await params;
+  const { back } = await searchParams;
+  const backHref = back && back.startsWith("/") ? back : "/templates";
   const template = await getTemplateById(id);
 
   if (!template) {
@@ -62,10 +66,10 @@ export default async function TemplatePage({
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-6 py-12">
         <div className="mb-8">
           <Link
-            href="/templates"
+            href={backHref}
             className="text-sm text-muted hover:text-foreground transition-colors"
           >
-            ← Retour aux templates
+            ← Retour
           </Link>
           <div className="mt-3 flex items-center gap-3">
             <h1 className="font-[family-name:var(--font-inter-tight)] text-[32px] font-medium leading-[1.2] text-foreground">
